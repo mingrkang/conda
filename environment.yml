@@ -1,14 +1,18 @@
-name: example-environment
+name: geo_python
 channels:
   - conda-forge
+  - defaults
 dependencies:
-  - python=3.11
-  - numpy
-  - psutil
-  - toolz
-  - matplotlib
-  - dill
+  - ipywidgets
+  - jupyterlab
   - pandas
-  - partd
-  - bokeh
-  - dask
+  - geopandas
+  - rasterio
+  - folium
+  - shapely
+  - scipy
+  - rasterstats
+  - jupyterlab_code_formatter
+  - black
+  - isort
+  - ipyleaflet
