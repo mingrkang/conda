@@ -1,0 +1,15 @@
+ipywidgets
+jupyterlab
+pandas
+geopandas
+rasterio
+folium
+shapely
+scipy
+rasterstats
+jupyterlab_code_formatter
+black
+isort
+ipyleaflet
+streamlit
+streamlit_folium
