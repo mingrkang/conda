@@ -21,10 +21,10 @@ from streamlit_folium import st_folium
 data_path = "C:\\Users\\Kang Family\Desktop\\OMSA\\CSE 6242\\project\\repo\\CSE6242_DVA_group_project\\data"
 print(data_path)
 
-# # Census Block layer
-# Census_Blocks = gpd.read_file(
-#     os.path.join(data_path, "Census_Block_Stats_with_Precinct_WakeCounty.geojson")
-# )
+# Census Block layer
+Census_Blocks = gpd.read_file(
+    os.path.join(data_path, "Census_Block_Stats_with_Precinct_WakeCounty.geojson")
+)
 # Voting precinct layer
 Voting_Precincts = gpd.read_file(
     os.path.join(data_path, "Voting_Precincts_WakeCounty.geojson")
