@@ -1,6 +1,8 @@
 ipywidgets
 jupyterlab
 pandas
+matplotlib
+mapclassify
 geopandas
 rasterio
 folium
