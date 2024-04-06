@@ -17,8 +17,8 @@ import shapely
 import streamlit as st
 from streamlit_folium import st_folium
 
-#data_path = os.path.join(os.getcwd(),"data")
-data_path = "C:\\Users\\Kang Family\Desktop\\OMSA\\CSE 6242\\project\\repo\\CSE6242_DVA_group_project\\data"
+data_path = os.path.join(os.getcwd(),"data")
+#data_path = "C:\\Users\\Kang Family\Desktop\\OMSA\\CSE 6242\\project\\repo\\CSE6242_DVA_group_project\\data"
 print(data_path)
 
 # Census Block layer
