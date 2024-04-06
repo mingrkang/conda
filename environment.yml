@@ -1,4 +1,4 @@
-name: geo_python
+name: cse6242_project2
 channels:
   - conda-forge
   - defaults
@@ -16,3 +16,6 @@ dependencies:
   - black
   - isort
   - ipyleaflet
+  - streamlit
+  - pip:
+    - streamlit_folium

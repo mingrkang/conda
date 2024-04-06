@@ -49,26 +49,26 @@ combined_map = Voting_Precincts.explore(
     name="Voting_Precincts",  # Name of the layer in the map.
 )
 
-# # Add Census Blocks as second layer
-# Census_Blocks.explore(
-#     m=combined_map,  # Pass the previous map object
-#     color="black",  # Use black color for borders.
-#     column="g20201103_reg_all",  # Make choropleth based on "total_reg" column.
-#     cmap = "afmhot_r", #color scheme
-#     # Styling instructions. We fill the wards with lightgrey color (when hovering over them),
-#     # and change the opacity of different elements.
-#     style_kwds=dict(
-#         fill=True, opacity=0.0, fillOpacity=0.5, interactive=True
-#     ),
-#     tiles="OpenStreetMap",  # Use Open Street Map background tiles.
-# #    tiles="CartoDB positron",
-#     tooltip=False,  # Do not show tooltip when hovering on wards.
-#     popup=["BLOCKCE20", "prec_id","g20201103_reg_all"],  # Show the name of the ward on click.
-#     # Do not show the column label "ward_name" in the popup.
-# #    popup_kwds=dict(labels=False),
-#     smooth_factor=0,  # Prevent smoothing of the polygons edges.
-#     name="Census_Blocks",  # Name of the layer in the map.
-# )
+# Add Census Blocks as second layer
+Census_Blocks.explore(
+    m=combined_map,  # Pass the previous map object
+    color="black",  # Use black color for borders.
+    column="g20201103_reg_all",  # Make choropleth based on "total_reg" column.
+    cmap = "afmhot_r", #color scheme
+    # Styling instructions. We fill the wards with lightgrey color (when hovering over them),
+    # and change the opacity of different elements.
+    style_kwds=dict(
+        fill=True, opacity=0.0, fillOpacity=0.5, interactive=True
+    ),
+    tiles="OpenStreetMap",  # Use Open Street Map background tiles.
+#    tiles="CartoDB positron",
+    tooltip=False,  # Do not show tooltip when hovering on wards.
+    popup=["BLOCKCE20", "prec_id","g20201103_reg_all"],  # Show the name of the ward on click.
+    # Do not show the column label "ward_name" in the popup.
+#    popup_kwds=dict(labels=False),
+    smooth_factor=0,  # Prevent smoothing of the polygons edges.
+    name="Census_Blocks",  # Name of the layer in the map.
+)
 
 # Add Polling Places as third layer
 Polling_Places.explore(
