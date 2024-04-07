@@ -51,28 +51,33 @@ def read_data(loadCensusBlocks=False):
 Census_Blocks, Voting_Precincts, Polling_Places = read_data(loadCensusBlocks=True)
 
 ## Processing attribute data
-CB_VP_merge = Census_Blocks.merge(Voting_Precincts, on='prec_id')[['GEOID20','prec_id','total_reg','g20201103_voted_all','geometry_x','geometry_y']]
+CB_VP_merge = Census_Blocks.merge(Voting_Precincts, on='prec_id')[['BLOCKCE20','prec_id','total_reg','g20201103_voted_all','geometry_x','geometry_y']]
 #VP_lookup = CB_VP_merge.groupby('prec_id')[['total_reg','g20201103_voted_all']].sum().reset_index()
-VP_lookup = CB_VP_merge.groupby('prec_id')[['GEOID20','total_reg','g20201103_voted_all']].agg({'GEOID20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
+VP_lookup = CB_VP_merge.groupby('prec_id')[['BLOCKCE20','total_reg','g20201103_voted_all']].agg({'BLOCKCE20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
 
 ## Add precinct select box to sidebar
 VP_select = st.sidebar.selectbox('Select Voting Precinct', VP_lookup['prec_id'],index = None)
 #print(VP_select)
 if VP_select is not None:
-    VP_select_gdf = Voting_Precincts[Voting_Precincts['prec_id']==VP_select]
-    CB_count = VP_lookup.loc[VP_lookup['prec_id']==VP_select,'GEOID20'].values[0]
+    VP_select_gdf = Voting_Precincts[Voting_Precincts['prec_id']==VP_select]  #GeoDataFrame for selected voting precinct
+    CB_select_gdf = Census_Blocks[Census_Blocks['prec_id']==VP_select]  # GeoDataFrame for Census Blocks in selected voting precinct
+    PP_select_gdf = Polling_Places[Polling_Places['USER_preci']=="PRECINCT {0}".format(VP_select)]  # GeoDataFrame for Polling Place assigned to selected voting precinct
+    PP_name = PP_select_gdf['USER_pol_1'].values[0]
+    PP_city = PP_select_gdf['USER_city'].values[0]
+    CB_count = VP_lookup.loc[VP_lookup['prec_id']==VP_select,'BLOCKCE20'].values[0]
     reg_count = VP_lookup.loc[VP_lookup['prec_id']==VP_select,'total_reg'].values[0]
     v2020_count = VP_lookup.loc[VP_lookup['prec_id']==VP_select,'g20201103_voted_all'].values[0]
     st.sidebar.caption('Census Blocks assigned to Voting Precinct {0}:'.format(VP_select))
     with st.sidebar:
         VP_info = st.dataframe(
-            CB_VP_merge.loc[CB_VP_merge['prec_id']==VP_select,['GEOID20','total_reg','g20201103_voted_all']],
+            CB_VP_merge.loc[CB_VP_merge['prec_id']==VP_select,['BLOCKCE20','total_reg','g20201103_voted_all']].sort_values(by='total_reg', ascending=False),
             column_config={
-                "GEOID20": "Block ID",
+                "BLOCKCE20": "Block ID",
                 "total_reg": "Registered",
                 "g20201103_voted_all": "Voted in 2020"
             },
             hide_index=True)
+    st.sidebar.caption("Polling Place in 2020: {0}, {1}".format(PP_name,PP_city))
     st.sidebar.caption("Total Census Blocks assigned: {0}".format(CB_count))
     st.sidebar.caption("Total registered voters: {0}".format(reg_count))
     st.sidebar.caption("Total who voted in 2020: {0}".format(v2020_count))
@@ -138,12 +143,33 @@ Polling_Places.explore(
 
 # Add selected precinct overlay
 if VP_select is not None:
+    # Voting Precinct
     VP_select_gdf.explore(
         m=combined_map,
         color="yellow",
         tooltip=False,
         smooth_factor=0,
         name="selected_precinct",  # Name of the layer in the map.
+    )
+    # Census Blocks in selected Voting Precinct
+    CB_select_gdf.explore(
+        m=combined_map,  # Pass the previous map object
+        color="black",  # Use black color for borders.
+        column="total_reg",  # Make choropleth based on "total_reg" column.
+        cmap = "afmhot_r", #color scheme
+        # Styling instructions. We fill the wards with lightgrey color (when hovering over them),
+        # and change the opacity of different elements.
+        style_kwds=dict(
+            fill=True, opacity=0.0, fillOpacity=0.5, interactive=True
+        ),
+#        tiles="OpenStreetMap",  # Use Open Street Map background tiles.
+    #    tiles="CartoDB positron",
+        tooltip=False,  # Do not show tooltip when hovering on wards.
+        popup=["BLOCKCE20", "prec_id","total_reg","g20201103_voted_all"],
+        # Do not show the column label "ward_name" in the popup.
+    #    popup_kwds=dict(labels=False),
+        smooth_factor=0,  # Prevent smoothing of the polygons edges.
+        name="Census_Blocks",  # Name of the layer in the map.
     )
 
 # combined_map.add_gdf(
