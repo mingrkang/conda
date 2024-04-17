@@ -53,7 +53,7 @@ def read_data(loadCensusBlocks=False):
 
     return Census_Blocks, Voting_Precincts, Polling_Places, Public_Schools
 
-Census_Blocks, Voting_Precincts, Polling_Places, Public Schools = read_data(loadCensusBlocks=True)
+Census_Blocks, Voting_Precincts, Polling_Places, Public_Schools = read_data(loadCensusBlocks=True)
 
 # Convert all geoPandas objects to ESPG:3857 (flat) projection
 Census_Blocks = Census_Blocks.to_crs(3857)
