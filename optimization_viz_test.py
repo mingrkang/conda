@@ -93,79 +93,81 @@ Public_Schools = Public_Schools.to_crs(3857)
 #     st.sidebar.caption("Total registered voters: {0}".format(reg_count))
 #     st.sidebar.caption("Total who voted in 2020: {0}".format(v2020_count))
 
+@st.cache_data
+def solve_model():
+    # Pulling Census block data for selected precinct(s)
+    PP = Polling_Places.assign(prec_id = Polling_Places['USER_preci'].str.replace(r'PRECINCT ',''))
+    selected_PPs = PP[PP['prec_id'].str.contains("01-06|01-07")]
+    PP_CB_merge = PP.merge(Census_Blocks, on='prec_id',how='left')[['GEOID20','prec_id','total_reg','g20201103_voted_all']]
+    PP_CB_merge = PP_CB_merge[PP_CB_merge['prec_id'].str.contains("01-06|01-07")].dropna()
+    selected_blocks = Census_Blocks[Census_Blocks['prec_id'].str.contains("01-06|01-07")]
 
-# Pulling Census block data for selected precinct(s)
-PP = Polling_Places.assign(prec_id = Polling_Places['USER_preci'].str.replace(r'PRECINCT ',''))
-selected_PPs = PP[PP['prec_id'].str.contains("01-06|01-07")]
-PP_CB_merge = PP.merge(Census_Blocks, on='prec_id',how='left')[['GEOID20','prec_id','total_reg','g20201103_voted_all']]
-PP_CB_merge = PP_CB_merge[PP_CB_merge['prec_id'].str.contains("01-06|01-07")].dropna()
-selected_blocks = Census_Blocks[Census_Blocks['prec_id'].str.contains("01-06|01-07")]
+    # Pulling public schools (potential voting sites) for selected precincts
+    selected_schools = Public_Schools[Public_Schools['prec_id'].str.contains("01-06|01-07")]
 
-# Pulling public schools (potential voting sites) for selected precincts
-selected_schools = Public_Schools[Public_Schools['prec_id'].str.contains("01-06|01-07")]
+    # No. of registered voters in each Census block
+    block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
 
-# No. of registered voters in each Census block
-block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
+    # Coordinates for voting sites (including schools) and Census Blocks
+    sites = np.column_stack((selected_PPs.geometry.x,selected_PPs.geometry.y))
+    sites = np.row_stack((sites,np.column_stack((selected_schools.geometry.x,selected_schools.geometry.y))))
+    #sites = np.column_stack((sites.geometry.x,sites.geometry.y))
+    blocks = np.column_stack((selected_blocks.centroid.x, selected_blocks.centroid.y))
 
-# Coordinates for voting sites (including schools) and Census Blocks
-sites = np.column_stack((selected_PPs.geometry.x,selected_PPs.geometry.y))
-sites = np.row_stack((sites,np.column_stack((selected_schools.geometry.x,selected_schools.geometry.y))))
-#sites = np.column_stack((sites.geometry.x,sites.geometry.y))
-blocks = np.column_stack((selected_blocks.centroid.x, selected_blocks.centroid.y))
+    # Site operating costs and budget - assume same site numbers as 2020 election
+    site_costs = np.ones(len(sites))
+    site_budget = 3
 
-# Site operating costs and budget - assume same site numbers as 2020 election
-site_costs = np.ones(len(sites))
-site_budget = 3
+    # Voting site capacities - guestimate using voter turnout in the 2020 election
+    PP_lookup = PP_CB_merge.groupby('prec_id')[['GEOID20','total_reg','g20201103_voted_all']].agg({'GEOID20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
+    #capacities = np.column_stack((PP_lookup['g20201103_voted_all'],PP_lookup['prec_id']))
+    capacities = np.ones(len(sites)) * 2000
 
-# Voting site capacities - guestimate using voter turnout in the 2020 election
-PP_lookup = PP_CB_merge.groupby('prec_id')[['GEOID20','total_reg','g20201103_voted_all']].agg({'GEOID20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
-#capacities = np.column_stack((PP_lookup['g20201103_voted_all'],PP_lookup['prec_id']))
-capacities = np.ones(len(sites)) * 2000
+    # Distance matrix
+    d = distance.cdist(np.float64(blocks),np.float64(sites),'euclidean')
 
-# Distance matrix
-d = distance.cdist(np.float64(blocks),np.float64(sites),'euclidean')
+    # Voting probability (turnout rate) as a function of distance to voting site
+    def prob_fun(dist):
+        return 1-dist/np.max(d)         # simple linear function for toy example. To substitute with estimates from research studies.
+    #p = {1:1,2:0.75,3:0.5,4:0.25,5:0}  #voting probabilities.  Values should be decreasing with distance.
+    w = 1  # weight parameter (1 gives equal weight to operating costs vs. voter costs)
 
-# Voting probability (turnout rate) as a function of distance to voting site
-def prob_fun(dist):
-    return 1-dist/np.max(d)         # simple linear function for toy example. To substitute with estimates from research studies.
-#p = {1:1,2:0.75,3:0.5,4:0.25,5:0}  #voting probabilities.  Values should be decreasing with distance.
-w = 1  # weight parameter (1 gives equal weight to operating costs vs. voter costs)
+    n, m = d.shape  #number of Census blocks, voting sites
 
-n, m = d.shape  #number of Census blocks, voting sites
+    ## Decision variables
+    X = cp.Variable(m, boolean=True)
+    Y = cp.Variable((n,m), boolean=True)  #rows=blocks, cols=sites
+    Z = cp.Variable((n,m), boolean=True)  # helper variables to eliminate non-convexity in objective function
 
-## Decision variables
-X = cp.Variable(m, boolean=True)
-Y = cp.Variable((n,m), boolean=True)  #rows=blocks, cols=sites
-Z = cp.Variable((n,m), boolean=True)  # helper variables to eliminate non-convexity in objective function
+    ## Constraints
+    e_i = np.ones((n,1))  # column of ones across blocks
+    e_j = np.ones((m,1))  # column of ones across voting sites 
 
-## Constraints
-e_i = np.ones((n,1))  # column of ones across blocks
-e_j = np.ones((m,1))  # column of ones across voting sites 
+    constraints = [site_costs.T @ X <= site_budget,
+                Y.T @ block_voters[:,0] <= capacities,
+                Y @ e_j == e_i]
 
-constraints = [site_costs.T @ X <= site_budget,
-               Y.T @ block_voters[:,0] <= capacities,
-               Y @ e_j == e_i]
+    ## Solve cost minimization problem
+    objective = 0
+    for i in range(n):
+        for j in range(m):
+    #        objective += X[j] * Y[i][j] * p[d[i][j]] * v[i]   # This formulation of the objective function is non-convex so it won't work with CVXPY.  Need to linearize.
+    #        objective += Z[i][j] * p[d[i][j]] * v[i]
+            objective += Z[i][j] * prob_fun(d[i][j]) * block_voters[i,0]
+            constraints.append(Z[i][j] <= X[j])                 # Constraints to linearize non-convexity involving product of two binary variables.
+            constraints.append(Z[i][j] <= Y[i][j])
+            constraints.append(Z[i][j] >= X[j] + Y[i][j] - 1)
+            constraints.append(Y[i][j] <= X[j])  # Adding constraint that no census blocks can be assigned to an inactive voting site
+    objective = site_costs.T @ X - w * objective
+    prob = cp.Problem(cp.Minimize(objective), constraints)
+    prob.solve()
+    #prob.solve(solver='GLPK_MI')
+    print("Status:", prob.status)
+    print("Optimal value:", prob.value)
+    print("Voting sites used:", X.value)
+    print("Voter assignments:\n", Y.value)
 
-## Solve cost minimization problem
-objective = 0
-for i in range(n):
-    for j in range(m):
-#        objective += X[j] * Y[i][j] * p[d[i][j]] * v[i]   # This formulation of the objective function is non-convex so it won't work with CVXPY.  Need to linearize.
-#        objective += Z[i][j] * p[d[i][j]] * v[i]
-        objective += Z[i][j] * prob_fun(d[i][j]) * block_voters[i,0]
-        constraints.append(Z[i][j] <= X[j])                 # Constraints to linearize non-convexity involving product of two binary variables.
-        constraints.append(Z[i][j] <= Y[i][j])
-        constraints.append(Z[i][j] >= X[j] + Y[i][j] - 1)
-        constraints.append(Y[i][j] <= X[j])  # Adding constraint that no census blocks can be assigned to an inactive voting site
-objective = site_costs.T @ X - w * objective
-prob = cp.Problem(cp.Minimize(objective), constraints)
-prob.solve()
-#prob.solve(solver='GLPK_MI')
-print("Status:", prob.status)
-print("Optimal value:", prob.value)
-print("Voting sites used:", X.value)
-print("Voter assignments:\n", Y.value)
-
+solve_model()
 
 ## Building map using geopandas.explore and folium
 
