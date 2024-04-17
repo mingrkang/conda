@@ -204,7 +204,7 @@ blocks_0.explore(
     ),
     tiles="OpenStreetMap",  # Use Open Street Map background tiles.
 #    tiles="CartoDB positron",
-    tooltip=["GEOID20"],  # Do not show tooltip when hovering on wards.
+    tooltip=["GEOID20","g20201103_reg_all"],  # Do not show tooltip when hovering on wards.
     popup=["GEOID20", "prec_id","g20201103_reg_all"],  # Show the name of the ward on click.
     # Do not show the column label "ward_name" in the popup.
 #    popup_kwds=dict(labels=False),
@@ -227,7 +227,7 @@ blocks_2.explore(
     ),
     tiles="OpenStreetMap",  # Use Open Street Map background tiles.
 #    tiles="CartoDB positron",
-    tooltip=["GEOID20"],  # Do not show tooltip when hovering on wards.
+    tooltip=["GEOID20","g20201103_reg_all"],  # Do not show tooltip when hovering on wards.
     popup=["GEOID20", "prec_id","g20201103_reg_all"],  # Show the name of the ward on click.
     # Do not show the column label "ward_name" in the popup.
 #    popup_kwds=dict(labels=False),
@@ -250,7 +250,7 @@ blocks_6.explore(
     ),
     tiles="OpenStreetMap",  # Use Open Street Map background tiles.
 #    tiles="CartoDB positron",
-    tooltip=["GEOID20"],  # Do not show tooltip when hovering on wards.
+    tooltip=["GEOID20","g20201103_reg_all"],  # Do not show tooltip when hovering on wards.
     popup=["GEOID20", "prec_id","g20201103_reg_all"],  # Show the name of the ward on click.
     # Do not show the column label "ward_name" in the popup.
 #    popup_kwds=dict(labels=False),
@@ -296,9 +296,13 @@ selected_schools.explore(
 
 # Adding markers to voting sites assigned by the model
 selected_sites = pd.concat([gpd.GeoSeries(selected_schools.iloc[3,:]['geometry']),selected_PPs.iloc[[0,2]]['geometry']],ignore_index=True)
+selected_sites = gpd.GeoDataFrame(selected_sites)
+selected_sites = selected_sites.rename(columns={0:'geometry'}).set_geometry('geometry')
+selected_sites = selected_sites.assign(name = ["CAMERON VILLAGE REGIONAL LIBRARY","SAINT SAVIOUR'S CENTER","Raleigh Charter High School"])
 folium.GeoJson(
     selected_sites,
-    marker=folium.Marker(icon=folium.Icon(icon='star'))
+    marker=folium.Marker(icon=folium.Icon(icon='star')),
+    popup=folium.GeoJsonPopup(fields=["name"])
 ).add_to(combined_map)
 
 # Use the folium library (which Geopandas is based on for interactive mapping) to add layer control
