@@ -105,7 +105,7 @@ selected_blocks = Census_Blocks[Census_Blocks['prec_id'].str.contains("01-06|01-
 selected_schools = Public_Schools[Public_Schools['prec_id'].str.contains("01-06|01-07")]
 
 # No. of registered voters in each Census block
- block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
+block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
 
 # Coordinates for voting sites (including schools) and Census Blocks
 sites = np.column_stack((selected_PPs.geometry.x,selected_PPs.geometry.y))
