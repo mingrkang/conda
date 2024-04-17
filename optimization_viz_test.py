@@ -166,8 +166,10 @@ def solve_model():
     print("Optimal value:", prob.value)
     print("Voting sites used:", X.value)
     print("Voter assignments:\n", Y.value)
+    
+    return prob.status, prob.value, X.value, Y.value
 
-solve_model()
+_, _, X_val, Y_val = solve_model()
 
 ## Building map using geopandas.explore and folium
 
@@ -188,7 +190,7 @@ combined_map = selected_precincts.explore(
 )
 
 # Add blocks for voting site 0
-inds = np.ma.make_mask(Y.value[:,0])
+inds = np.ma.make_mask(Y_val[:,0])
 blocks_0 = selected_blocks.loc[inds,['GEOID20','prec_id','g20201103_reg_all','geometry']]
 blocks_0.explore(
     m=combined_map,  # Pass the previous map object
@@ -211,7 +213,7 @@ blocks_0.explore(
 )
 
 # Add blocks for voting site 2
-inds = np.ma.make_mask(Y.value[:,2])
+inds = np.ma.make_mask(Y_val[:,2])
 blocks_2 = selected_blocks.loc[inds,['GEOID20','prec_id','g20201103_reg_all','geometry']]
 blocks_2.explore(
     m=combined_map,  # Pass the previous map object
@@ -234,7 +236,7 @@ blocks_2.explore(
 )
 
 # Add blocks for voting site 6
-inds = np.ma.make_mask(Y.value[:,6])
+inds = np.ma.make_mask(Y_val[:,6])
 blocks_6 = selected_blocks.loc[inds,['GEOID20','prec_id','g20201103_reg_all','geometry']]
 blocks_6.explore(
     m=combined_map,  # Pass the previous map object
