@@ -93,36 +93,37 @@ Public_Schools = Public_Schools.to_crs(3857)
 #     st.sidebar.caption("Total registered voters: {0}".format(reg_count))
 #     st.sidebar.caption("Total who voted in 2020: {0}".format(v2020_count))
 
+
+# Pulling Census block data for selected precinct(s)
+PP = Polling_Places.assign(prec_id = Polling_Places['USER_preci'].str.replace(r'PRECINCT ',''))
+selected_PPs = PP[PP['prec_id'].str.contains("01-06|01-07")]
+PP_CB_merge = PP.merge(Census_Blocks, on='prec_id',how='left')[['GEOID20','prec_id','total_reg','g20201103_voted_all']]
+PP_CB_merge = PP_CB_merge[PP_CB_merge['prec_id'].str.contains("01-06|01-07")].dropna()
+selected_blocks = Census_Blocks[Census_Blocks['prec_id'].str.contains("01-06|01-07")]
+
+# Pulling public schools (potential voting sites) for selected precincts
+selected_schools = Public_Schools[Public_Schools['prec_id'].str.contains("01-06|01-07")]
+
+# No. of registered voters in each Census block
+ block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
+
+# Coordinates for voting sites (including schools) and Census Blocks
+sites = np.column_stack((selected_PPs.geometry.x,selected_PPs.geometry.y))
+sites = np.row_stack((sites,np.column_stack((selected_schools.geometry.x,selected_schools.geometry.y))))
+#sites = np.column_stack((sites.geometry.x,sites.geometry.y))
+blocks = np.column_stack((selected_blocks.centroid.x, selected_blocks.centroid.y))
+
+# Site operating costs and budget - assume same site numbers as 2020 election
+site_costs = np.ones(len(sites))
+site_budget = 3
+
+# Voting site capacities - guestimate using voter turnout in the 2020 election
+PP_lookup = PP_CB_merge.groupby('prec_id')[['GEOID20','total_reg','g20201103_voted_all']].agg({'GEOID20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
+#capacities = np.column_stack((PP_lookup['g20201103_voted_all'],PP_lookup['prec_id']))
+capacities = np.ones(len(sites)) * 2000
+
 @st.cache_data
-def solve_model():
-    # Pulling Census block data for selected precinct(s)
-    PP = Polling_Places.assign(prec_id = Polling_Places['USER_preci'].str.replace(r'PRECINCT ',''))
-    selected_PPs = PP[PP['prec_id'].str.contains("01-06|01-07")]
-    PP_CB_merge = PP.merge(Census_Blocks, on='prec_id',how='left')[['GEOID20','prec_id','total_reg','g20201103_voted_all']]
-    PP_CB_merge = PP_CB_merge[PP_CB_merge['prec_id'].str.contains("01-06|01-07")].dropna()
-    selected_blocks = Census_Blocks[Census_Blocks['prec_id'].str.contains("01-06|01-07")]
-
-    # Pulling public schools (potential voting sites) for selected precincts
-    selected_schools = Public_Schools[Public_Schools['prec_id'].str.contains("01-06|01-07")]
-
-    # No. of registered voters in each Census block
-    block_voters = np.column_stack((selected_blocks.total_reg,selected_blocks.GEOID20))
-
-    # Coordinates for voting sites (including schools) and Census Blocks
-    sites = np.column_stack((selected_PPs.geometry.x,selected_PPs.geometry.y))
-    sites = np.row_stack((sites,np.column_stack((selected_schools.geometry.x,selected_schools.geometry.y))))
-    #sites = np.column_stack((sites.geometry.x,sites.geometry.y))
-    blocks = np.column_stack((selected_blocks.centroid.x, selected_blocks.centroid.y))
-
-    # Site operating costs and budget - assume same site numbers as 2020 election
-    site_costs = np.ones(len(sites))
-    site_budget = 3
-
-    # Voting site capacities - guestimate using voter turnout in the 2020 election
-    PP_lookup = PP_CB_merge.groupby('prec_id')[['GEOID20','total_reg','g20201103_voted_all']].agg({'GEOID20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
-    #capacities = np.column_stack((PP_lookup['g20201103_voted_all'],PP_lookup['prec_id']))
-    capacities = np.ones(len(sites)) * 2000
-
+def solve_model(w=1):  # weight parameter w (1 gives equal weight to operating costs vs. voter costs)
     # Distance matrix
     d = distance.cdist(np.float64(blocks),np.float64(sites),'euclidean')
 
@@ -130,8 +131,7 @@ def solve_model():
     def prob_fun(dist):
         return 1-dist/np.max(d)         # simple linear function for toy example. To substitute with estimates from research studies.
     #p = {1:1,2:0.75,3:0.5,4:0.25,5:0}  #voting probabilities.  Values should be decreasing with distance.
-    w = 1  # weight parameter (1 gives equal weight to operating costs vs. voter costs)
-
+    
     n, m = d.shape  #number of Census blocks, voting sites
 
     ## Decision variables
