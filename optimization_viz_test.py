@@ -159,7 +159,8 @@ for i in range(n):
         constraints.append(Y[i][j] <= X[j])  # Adding constraint that no census blocks can be assigned to an inactive voting site
 objective = site_costs.T @ X - w * objective
 prob = cp.Problem(cp.Minimize(objective), constraints)
-prob.solve(solver='GLPK_MI')
+prob.solve()
+#prob.solve(solver='GLPK_MI')
 print("Status:", prob.status)
 print("Optimal value:", prob.value)
 print("Voting sites used:", X.value)
