@@ -9,7 +9,6 @@ import rasterio
 from rasterio.plot import show
 import folium
 import shapely
-from folium.plugins import Draw
 
 # Voronoi and Zonal statistics libraries
 #from rasterstats import zonal_stats
@@ -47,6 +46,12 @@ def read_data(loadCensusBlocks=False):
     # Polling place layer
     Polling_Places = gpd.read_file(os.path.join(data_path, "Polling_Places_WakeCounty.geojson"))
 
+    # Convert all geoPandas objects to ESPG:3857 (flat) projection
+    if loadCensusBlocks:
+        Census_Blocks = Census_Blocks.to_crs(4269)
+    Voting_Precincts = Voting_Precincts.to_crs(4269)
+    Polling_Places = Polling_Places.to_crs(4269)
+
     return Census_Blocks, Voting_Precincts, Polling_Places
 
 Census_Blocks, Voting_Precincts, Polling_Places = read_data(loadCensusBlocks=True)
@@ -55,6 +60,9 @@ Census_Blocks, Voting_Precincts, Polling_Places = read_data(loadCensusBlocks=Tru
 CB_VP_merge = Census_Blocks.merge(Voting_Precincts, on='prec_id')[['BLOCKCE20','prec_id','total_reg','g20201103_voted_all','geometry_x','geometry_y']]
 #VP_lookup = CB_VP_merge.groupby('prec_id')[['total_reg','g20201103_voted_all']].sum().reset_index()
 VP_lookup = CB_VP_merge.groupby('prec_id')[['BLOCKCE20','total_reg','g20201103_voted_all']].agg({'BLOCKCE20':'size','total_reg':'sum','g20201103_voted_all':'sum'}).reset_index()
+
+# Variable for setting map extent bounds.  Set equal to all of Wake County by default.
+bounds = Voting_Precincts.total_bounds
 
 ## Add precinct select box to sidebar
 VP_select = st.sidebar.selectbox('Select Voting Precinct', VP_lookup['prec_id'],index = None)
@@ -83,55 +91,20 @@ if VP_select is not None:
     st.sidebar.caption("Total registered voters: {0}".format(reg_count))
     st.sidebar.caption("Total who voted in 2020: {0}".format(v2020_count))
 
-## Function to grab data based on bounding box drawn on map
-def get_data_in_bbox(bbox, gdf):
-    lat_min, lat_max, lon_min, lon_max = (bbox[0], bbox[2], bbox[1], bbox[3])  #lat_min, lat_max, lon_min, lon_max
-    return gdf[(gdf['geometry'].x >= lon_min) & (gdf['geometry'].x <= lon_max) & (gdf['geometry'].y >= lat_min) & (gdf['geometry'].y <= lat_max)]
-
+    # Set map extent bounds based on selected precinct
+    bounds = VP_select_gdf.total_bounds
 
 ## Building map using geopandas.explore and folium
-
-combined_map = folium.Map()
-Draw(export=True).add_to(combined_map)
-
-# Initializing bounding box selector
-session_keys = list(st.session_state.keys())
-
-START_BOUNDS = '''
-{'_southWest': {'lat': 4242037.93587595, 'lng': -8788507.56607454}, '_northEast': {'lat': 4307358.67773661, 'lng': -8717879.92688626}}
-'''
-
-try:
-    first_bounds = st.session_state[session_keys[0]]['bounds']
-except Exception as e:
-    first_bounds = START_BOUNDS
-
-try:
-    south = first_bounds['_southWest']['lat']
-except Exception as e:
-    south = 4245000
-try:
-    west = first_bounds['_southWest']['lng']
-except Exception as e:
-    west = -8785000
-try:
-    north = first_bounds['_northEast']['lat']
-except Exception as e:
-    north = 4305000
-try:
-    east = first_bounds['_northEast']['lng']
-except Exception as e:
-    east = -8720000
-
-bbox = [south, west, north, east]
-print(bbox)
-PP_bbox_gdf = get_data_in_bbox(bbox,Polling_Places)
 
 loadCensusBlocks=False
 # explore() is a geopandas method to create interactive maps.
 # we assign it to the variable 'combined_map', to add more map layers after.
 combined_map = Voting_Precincts.explore(
-    m = combined_map,
+    min_lat=bounds[1],
+    min_lon=bounds[0],
+    max_lat=bounds[3],
+    max_lon=bounds[2],
+    max_bounds=True,
     color="blue",
 #    column="enr_desc",  # Make choropleth based on "category" column.
     tooltip="enr_desc",  # Show "name" value in tooltip (on hover)
@@ -224,29 +197,10 @@ if VP_select is not None:
 #     style={'color': 'yellow', 'fill': None, 'weight': 2}
 #  )
 
-## Add bounding box selector for Polling Places
-fg = folium.FeatureGroup(name="PP_bbox")
-
-for data_point in PP_bbox_gdf.itertuples():
-    folium.CircleMarker( 
-        location=(data_point[-1].y,data_point[-1].x),  
-        radius=4,  
-        color='cornflowerblue', 
-        fill=True, 
-        fill_opacity=1, 
-        opacity=1, 
-    ).add_to(combined_map) 
-# PP_bbox_gdf.explore(
-#     m=combined_map,  # Pass the previous map object.
-#     marker_kwds=dict(radius=10),  # Size of the points.
-#     style_kwds=dict(color="orange", weight=1, fill=True, opacity=1, fillOpacity=1),
-#     name="PP_bbox_selected",  # Name of the layer in the map.
-# )
-
 # Use the folium library (which Geopandas is based on for interactive mapping) to add layer control
 folium.LayerControl().add_to(combined_map)
     
 
 # Load map
-st_map = st_folium(combined_map, feature_group_to_add = fg, width=1000, key = "st_map")
+st_map = st_folium(combined_map, width=1000)
 
